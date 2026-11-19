@@ -151,13 +151,13 @@ export async function generateWithFallback(
 ): Promise<AIResult> {
   const jsonMode = responseFormat === 'json';
   const openAIModel = 'gpt-6-luna';
-  const geminiModel = 'gemini-3.6-flash';
+  const geminiModel = 'gemini-4-hydrogen';
   const groqModel = 'openai/gpt-oss-20b';
   const anthropicModel = 'claude-haiku-5-5';
   const providers: ProviderDefinition[] = [
     {
       provider: 'openai',
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: process.env.OPENAI_API_KEY?.trim() || undefined,
       model: openAIModel,
       generate: async (apiKey) => {
         const payload = await postJson(
@@ -178,7 +178,10 @@ export async function generateWithFallback(
     },
     {
       provider: 'gemini',
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey:
+        process.env.GOOGLE_API_KEY?.trim() ||
+        process.env.GEMINI_API_KEY?.trim() ||
+        undefined,
       model: geminiModel,
       generate: async (apiKey) => {
         const ai = new GoogleGenAI({ apiKey });
@@ -192,7 +195,7 @@ export async function generateWithFallback(
     },
     {
       provider: 'groq',
-      apiKey: process.env.GROQ_API_KEY,
+      apiKey: process.env.GROQ_API_KEY?.trim() || undefined,
       model: groqModel,
       generate: async (apiKey) => {
         const payload = await postJson(
@@ -213,7 +216,7 @@ export async function generateWithFallback(
     },
     {
       provider: 'anthropic',
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey: process.env.ANTHROPIC_API_KEY?.trim() || undefined,
       model: anthropicModel,
       generate: async (apiKey) => {
         const payload = await postJson(
