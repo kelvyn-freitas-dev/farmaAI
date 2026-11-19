@@ -1,4 +1,4 @@
-import { PDFParse } from 'pdf-parse';
+import PDFParser from 'pdf2json';
 import {
   AIProvidersUnavailableError,
   generateWithFallback,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/supabaseServer';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 100_000;
@@ -140,8 +141,6 @@ async function handleProcess(request: Request) {
   let pageCount: number | null = null;
 
   if (extension === 'pdf') {
-    let parser: PDFParse | undefined;
-
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const signature = new TextDecoder().decode(bytes.subarray(0, 5));
@@ -152,10 +151,21 @@ async function handleProcess(request: Request) {
         );
       }
 
-      parser = new PDFParse({ data: bytes });
-      const parsed = await parser.getText();
+      const parsed = await new Promise<{ text: string; pageCount: number }>(
+        (resolve, reject) => {
+          const parser = new PDFParser(undefined, true);
+          parser.on('pdfParser_dataError', ({ parserError }) => reject(parserError));
+          parser.on('pdfParser_dataReady', (pdfData) => {
+            resolve({
+              text: parser.getRawTextContent(),
+              pageCount: pdfData.Pages.length,
+            });
+          });
+          parser.parseBuffer(Buffer.from(bytes));
+        },
+      );
       extractedText = parsed.text;
-      pageCount = parsed.total;
+      pageCount = parsed.pageCount;
     } catch (error) {
       console.error('Falha ao extrair texto do PDF:', error);
       return Response.json(
@@ -165,8 +175,6 @@ async function handleProcess(request: Request) {
         },
         { status: 422 },
       );
-    } finally {
-      await parser?.destroy();
     }
   } else {
     try {
